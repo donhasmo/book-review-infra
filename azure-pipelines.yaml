@@ -47,21 +47,30 @@ stages:
         echo "==================="
       displayName: "Debug: Verify Terraform path and workspace contents"
 
-    # 🧰 Ensure Terraform CLI is installed
+        # 🧰 Ensure Terraform CLI is installed quickly
     - script: |
-        if ! command -v terraform &> /dev/null; then
-          echo "Terraform not found. Installing..."
-          sudo apt-get update -y
-          sudo apt-get install -y wget unzip
-          wget -q https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip
-          unzip terraform_1.9.8_linux_amd64.zip
-          sudo mv terraform /usr/local/bin/
+        echo "Checking if Terraform is installed..."
+        if terraform -version >/dev/null 2>&1; then
+          echo "Terraform is already installed."
           terraform -version
         else
-          echo "Terraform already installed:"
+          echo "Terraform not found. Installing (with timeout)..."
+          sudo apt-get update -y >/dev/null 2>&1 || true
+          sudo apt-get install -y wget unzip >/dev/null 2>&1 || true
+
+          # Download with a 60s timeout
+          timeout 60 wget -q https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip || {
+            echo "Download timed out or failed."
+            exit 1
+          }
+
+          unzip -o terraform_1.9.8_linux_amd64.zip >/dev/null 2>&1
+          sudo mv terraform /usr/local/bin/
+          echo "Terraform installed:"
           terraform -version
         fi
-      displayName: "Install Terraform if missing"
+      displayName: "Quick Check or Install Terraform"
+
 
     # ☁️ Terraform Apply Stage
     - task: AzureCLI@2
