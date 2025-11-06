@@ -39,6 +39,17 @@ stages:
         echo "Listing contents of terraform/modules/compute/"
         ls -al terraform/modules/compute/
       displayName: 'Extract SSH Public Key for Terraform'
+      
+    # 🔍 Diagnostic Step (added)
+    - script: |
+        echo "=== DEBUG INFO ==="
+        echo "Current working directory:"
+        pwd
+        echo ""
+        echo "Listing all files and directories recursively:"
+        ls -R
+        echo "==================="
+      displayName: "Debug: Verify Terraform path and workspace contents"
 
     - task: AzureCLI@2
       inputs:
