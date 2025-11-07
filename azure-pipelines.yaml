@@ -7,7 +7,6 @@ trigger:
       - main
 
 stages:
-
 - stage: Terraform
   displayName: 'Provision Infrastructure'
   jobs:
@@ -17,62 +16,64 @@ stages:
       name: 'linux-hosted-agent'
     steps:
 
-    # Download the SSH public key
+    # 🔑 Download the SSH public key from secure files
     - task: DownloadSecureFile@1
       name: download_ssh_key
       inputs:
         secureFile: 'id_rsa.pub'
 
+    # 📂 Copy SSH key to Terraform compute module
     - script: |
         echo "Copying SSH public key into Terraform module"
 
         mkdir -p ~/.ssh
-        cp $(download_ssh_key.secureFilePath) ~/.ssh/id_rsa.pub
+        cp "$(download_ssh_key.secureFilePath)" ~/.ssh/id_rsa.pub
 
         # Copy into Terraform compute module
-        cp $(download_ssh_key.secureFilePath) terraform/modules/compute/id_rsa.pub
+        mkdir -p terraform/modules/compute
+        cp "$(download_ssh_key.secureFilePath)" terraform/modules/compute/id_rsa.pub
 
         echo "Listing contents of terraform/modules/compute/"
         ls -al terraform/modules/compute/
       displayName: 'Extract SSH Public Key for Terraform'
 
-    # 🔍 Diagnostic Step
+
+    # 🔍 Diagnostic Step: verify paths and files
     - script: |
         echo "=== DEBUG INFO ==="
         echo "Current working directory:"
         pwd
         echo ""
-        echo "Listing files recursively:"
-        ls -R terraform
+        echo "Listing files recursively under terraform/:"
+        ls -R terraform || echo "❌ Terraform folder not found!"
         echo "==================="
       displayName: "Debug: Verify Terraform path and workspace contents"
 
-        # 🧰 Ensure Terraform CLI is installed quickly
+
+    # 🧰 Ensure Terraform CLI is installed globally
     - script: |
         echo "Checking if Terraform is installed..."
-        if terraform -version >/dev/null 2>&1; then
-          echo "Terraform is already installed."
+        if command -v terraform >/dev/null 2>&1; then
+          echo "✅ Terraform is already installed:"
           terraform -version
         else
-          echo "Terraform not found. Installing (with timeout)..."
-          sudo apt-get update -y >/dev/null 2>&1 || true
-          sudo apt-get install -y wget unzip >/dev/null 2>&1 || true
+          echo "⚙️ Terraform not found — installing globally..."
+          TERRAFORM_VERSION="1.9.8"
 
-          # Download with a 60s timeout
-          timeout 60 wget -q https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip || {
-            echo "Download timed out or failed."
-            exit 1
-          }
+          sudo apt-get update -y
+          sudo apt-get install -y wget unzip
 
-          unzip -o terraform_1.9.8_linux_amd64.zip >/dev/null 2>&1
-          sudo mv terraform /usr/local/bin/
-          echo "Terraform installed:"
+          wget -q https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+          sudo unzip -o terraform_${TERRAFORM_VERSION}_linux_amd64.zip -d /usr/local/bin/
+          sudo chmod +x /usr/local/bin/terraform
+
+          echo "✅ Terraform installed successfully:"
           terraform -version
         fi
       displayName: "Quick Check or Install Terraform"
 
 
-    # ☁️ Terraform Apply Stage
+    # ☁️ Terraform Init/Plan/Apply
     - task: AzureCLI@2
       inputs:
         azureSubscription: 'it-azure-connection'
@@ -81,7 +82,15 @@ stages:
         workingDirectory: $(System.DefaultWorkingDirectory)/terraform
         inlineScript: |
           echo "##[group]Terraform Init/Plan/Apply"
-          terraform init -input=false 
+
+          echo "Current working directory: $(pwd)"
+          ls -al
+
+          # Ensure Terraform binary is available
+          which terraform || { echo "❌ Terraform not found in PATH"; exit 1; }
+
+          terraform init -input=false
           terraform plan -input=false -var-file="envs/dev.tfvars"
           terraform apply -input=false -auto-approve -var-file="envs/dev.tfvars"
+
           echo "##[endgroup]"
