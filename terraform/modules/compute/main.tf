@@ -3,6 +3,14 @@ resource "azurerm_public_ip" "frontend_pip" {
   location            = var.location
   resource_group_name = var.resource_group_name
   allocation_method   = "Static"
+  sku                 = "Standard"
+
+  timeouts {
+    create = "10m"
+    read   = "2m"
+    update = "10m"
+    delete = "10m"
+  }
 }
 
 resource "azurerm_network_interface" "frontend_nic" {
@@ -16,6 +24,13 @@ resource "azurerm_network_interface" "frontend_nic" {
     private_ip_address_allocation = "Dynamic"
     public_ip_address_id          = azurerm_public_ip.frontend_pip.id
   }
+
+  timeouts {
+    create = "10m"
+    read   = "2m"
+    update = "10m"
+    delete = "10m"
+  }
 }
 
 resource "azurerm_public_ip" "backend_pip" {
@@ -23,6 +38,14 @@ resource "azurerm_public_ip" "backend_pip" {
   location            = var.location
   resource_group_name = var.resource_group_name
   allocation_method   = "Static"
+  sku                 = "Standard"
+
+  timeouts {
+    create = "10m"
+    read   = "2m"
+    update = "10m"
+    delete = "10m"
+  }
 }
 
 resource "azurerm_network_interface" "backend_nic" {
@@ -35,6 +58,13 @@ resource "azurerm_network_interface" "backend_nic" {
     subnet_id                     = var.vnet_subnet_id
     private_ip_address_allocation = "Dynamic"
     public_ip_address_id          = azurerm_public_ip.backend_pip.id
+  }
+
+  timeouts {
+    create = "10m"
+    read   = "2m"
+    update = "10m"
+    delete = "10m"
   }
 }
 
@@ -65,6 +95,13 @@ resource "azurerm_linux_virtual_machine" "frontend_vm" {
     version   = "latest"
   }
 
+  timeouts {
+    create = "10m"
+    read   = "2m"
+    update = "10m"
+    delete = "10m"
+  }
+
   disable_password_authentication = true
 }
 
@@ -93,6 +130,13 @@ resource "azurerm_linux_virtual_machine" "backend_vm" {
     offer     = "0001-com-ubuntu-server-jammy"
     sku       = "22_04-lts"
     version   = "latest"
+  }
+
+  timeouts {
+    create = "10m"
+    read   = "2m"
+    update = "10m"
+    delete = "10m"
   }
 
   disable_password_authentication = true
